@@ -781,13 +781,22 @@ func (u *multiuploader) complete() *s3.CompleteMultipartUploadOutput {
 	// Parts must be sorted in PartNumber order.
 	sort.Sort(u.parts)
 
-	params := &s3.CompleteMultipartUploadInput{
-		Bucket:          u.in.Bucket,
-		Key:             u.in.Key,
-		UploadId:        &u.uploadID,
-		MultipartUpload: &s3.CompletedMultipartUpload{Parts: u.parts},
+	var resp *s3.CompleteMultipartUploadOutput
+	var err error
+
+	for i := 0; i < 20; i++ {
+		params := &s3.CompleteMultipartUploadInput{
+			Bucket:          u.in.Bucket,
+			Key:             u.in.Key,
+			UploadId:        &u.uploadID,
+			MultipartUpload: &s3.CompletedMultipartUpload{Parts: u.parts},
+		}
+		resp, err = u.cfg.S3.CompleteMultipartUploadWithContext(u.ctx, params, u.cfg.RequestOptions...)
+		if err == nil {
+			break
+		}
 	}
-	resp, err := u.cfg.S3.CompleteMultipartUploadWithContext(u.ctx, params, u.cfg.RequestOptions...)
+
 	if err != nil {
 		u.seterr(err)
 		u.fail()
